@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// All requests now go through the Next.js rewrite above, so the browser
+// only ever talks to its own origin — this avoids Safari ITP blocking the
+// cross-site session cookie entirely.
+const API_URL = "/api";
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {

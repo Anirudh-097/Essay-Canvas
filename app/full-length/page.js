@@ -70,6 +70,8 @@ export default function FullLengthPage() {
   const [essay, setEssay] = useState("");
   const [seconds, setSeconds] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
+  const [evaluation, setEvaluation] = useState(null);
+  const [evaluationLoading, setEvaluationLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -102,6 +104,23 @@ export default function FullLengthPage() {
     setUser(null);
   }
 
+  async function evaluateEssay(event) {
+    event.preventDefault();
+    setEvaluationLoading(true);
+    setError("");
+    try {
+      const result = await request("/evaluate/essay", {
+        method: "POST",
+        body: JSON.stringify({ topic_id: topic.id, essay }),
+      });
+      setEvaluation(result.evaluation);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setEvaluationLoading(false);
+    }
+  }
+
   if (!authChecked) return <main className="flex min-h-screen items-center justify-center bg-paper text-sm text-ink/50">Checking your session…</main>;
   if (!user) return <LoginPage onLogin={setUser} />;
 
@@ -129,7 +148,7 @@ export default function FullLengthPage() {
         {error && <p className="mb-8 rounded-xl bg-red-50 p-4 text-sm leading-6 text-red-800">{error}</p>}
 
         <section className="grid gap-8 lg:grid-cols-[1fr_300px]">
-          <article className="rounded-[2rem] bg-white p-8 shadow-[0_24px_80px_rgba(23,32,51,0.10)] sm:p-12">
+          <form className="rounded-[2rem] bg-white p-8 shadow-[0_24px_80px_rgba(23,32,51,0.10)] sm:p-12" onSubmit={evaluateEssay}>
             <div className="mb-10 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-ink/40">
               <span>Issue topic</span>
               {topic && <span>#{String(topic.id).padStart(3, "0")}</span>}
@@ -141,7 +160,10 @@ export default function FullLengthPage() {
               <span><strong className="font-semibold text-ink">{wordCount}</strong> {wordCount === 1 ? "word" : "words"}</span>
               <span>Suggested length: 500–700 words</span>
             </div>
-          </article>
+            <button className="mt-7 rounded-full bg-coral px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50" disabled={evaluationLoading || !topic || !essay.trim()} type="submit">
+              {evaluationLoading ? "Evaluating essay…" : evaluation ? "Evaluate again" : "Evaluate essay"}
+            </button>
+          </form>
 
           <aside className="h-fit rounded-[2rem] bg-ink p-7 text-white lg:sticky lg:top-6">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-coral">Writing timer</p>
@@ -153,6 +175,57 @@ export default function FullLengthPage() {
             </div>
           </aside>
         </section>
+
+        {evaluation && (
+          <section className="mt-8 rounded-[2rem] border border-ink/10 bg-[#eee9df] p-8 sm:p-10">
+            <div className="flex flex-col gap-3 border-b border-ink/15 pb-7 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-coral">Essay evaluation</p>
+                <h2 className="mt-4 font-display text-3xl leading-tight">A complete read of your argument.</h2>
+              </div>
+              <p className="font-display text-5xl text-coral">{evaluation.score}<span className="text-lg text-ink/40"> / 6</span></p>
+            </div>
+
+            <div className="mt-8 grid gap-8 lg:grid-cols-2">
+              <div>
+                <p className="font-semibold">What&apos;s working</p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-ink/70">
+                  {evaluation.strengths.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+                </ul>
+              </div>
+              <div>
+                <p className="font-semibold">Next to improve</p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-ink/70">
+                  {evaluation.weaknesses.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-ink/15 pt-7">
+              <p className="font-semibold">Suggested rewrite</p>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-ink/70">{evaluation.suggested_rewrite}</p>
+            </div>
+
+            {evaluation.better_vocabulary?.length > 0 && (
+              <div className="mt-8 border-t border-ink/15 pt-7">
+                <p className="font-semibold">Vocabulary improvements</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {evaluation.better_vocabulary.map((item, index) => {
+                    const synonyms = Array.isArray(item.synonyms) ? item.synonyms : item.synonyms ? [item.synonyms] : [];
+                    return (
+                      <div className="rounded-2xl border border-ink/5 bg-white/60 p-5" key={`${item.word}-${index}`}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/40">Consider replacing</p>
+                        <p className="mt-2 font-display text-xl text-coral">{item.word}</p>
+                        {synonyms.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{synonyms.map((synonym, synonymIndex) => <span className="rounded-lg bg-ink/5 px-2.5 py-1 text-xs font-semibold text-ink/70" key={`${synonym}-${synonymIndex}`}>{synonym}</span>)}</div>}
+                        {item.context && <p className="mt-3 text-xs italic leading-5 text-ink/50">{item.context}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         <footer className="mt-16 flex items-center justify-between border-t border-ink/10 pt-5 text-xs text-ink/45"><span>Practice with intention.</span><span>02 / full-length essay</span></footer>
       </div>

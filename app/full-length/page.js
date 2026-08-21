@@ -147,7 +147,22 @@ export default function FullLengthPage() {
 
         {error && <p className="mb-8 rounded-xl bg-red-50 p-4 text-sm leading-6 text-red-800">{error}</p>}
 
-        <section className="grid gap-8 lg:grid-cols-[1fr_300px]">
+        <div className="mb-6 flex justify-end">
+          <aside className="w-full rounded-[1.5rem] bg-ink px-6 py-5 text-white sm:w-auto sm:min-w-[360px]">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-coral">Writing timer</p>
+                <p className={`mt-2 font-display text-4xl tracking-tight ${seconds >= 30 * 60 ? "text-coral" : "text-white"}`} aria-live="polite">{formatTime(seconds)}</p>
+              </div>
+              <div className="flex gap-2">
+                <button className="rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white hover:text-ink" onClick={() => setTimerRunning((running) => !running)} type="button">{timerRunning ? "Pause" : "Start"}</button>
+                <button className="rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white/75 transition hover:border-white hover:text-white" onClick={() => { setTimerRunning(false); setSeconds(0); }} type="button">Reset</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        <section>
           <form className="rounded-[2rem] bg-white p-8 shadow-[0_24px_80px_rgba(23,32,51,0.10)] sm:p-12" onSubmit={evaluateEssay}>
             <div className="mb-10 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-ink/40">
               <span>Issue topic</span>
@@ -158,22 +173,13 @@ export default function FullLengthPage() {
             <textarea className="mt-10 min-h-[30rem] w-full resize-y rounded-2xl border border-ink/10 bg-paper p-6 text-base leading-8 text-ink outline-none ring-coral/30 placeholder:text-ink/35 focus:ring-2" id="full-length-essay" placeholder="Begin your essay here…" value={essay} onChange={(event) => setEssay(event.target.value)} />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-ink/50">
               <span><strong className="font-semibold text-ink">{wordCount}</strong> {wordCount === 1 ? "word" : "words"}</span>
-              <span>Suggested length: 500–700 words</span>
+              <span>Suggested length: 450–600 words</span>
             </div>
             <button className="mt-7 rounded-full bg-coral px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50" disabled={evaluationLoading || !topic || !essay.trim()} type="submit">
               {evaluationLoading ? "Evaluating essay…" : evaluation ? "Evaluate again" : "Evaluate essay"}
             </button>
           </form>
 
-          <aside className="h-fit rounded-[2rem] bg-ink p-7 text-white lg:sticky lg:top-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-coral">Writing timer</p>
-            <p className="mt-6 font-display text-6xl tracking-tight" aria-live="polite">{formatTime(seconds)}</p>
-            <p className="mt-3 text-sm leading-6 text-white/55">Start when you are ready. The timer runs only while this page is open.</p>
-            <div className="mt-7 flex gap-2">
-              <button className="flex-1 rounded-full bg-coral px-4 py-3 text-sm font-semibold text-white transition hover:bg-white hover:text-ink" onClick={() => setTimerRunning((running) => !running)} type="button">{timerRunning ? "Pause" : "Start"}</button>
-              <button className="rounded-full border border-white/20 px-4 py-3 text-sm font-semibold text-white/75 transition hover:border-white hover:text-white" onClick={() => { setTimerRunning(false); setSeconds(0); }} type="button">Reset</button>
-            </div>
-          </aside>
         </section>
 
         {evaluation && (

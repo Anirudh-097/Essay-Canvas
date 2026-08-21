@@ -182,6 +182,10 @@ export default function HomePage() {
             essay<span className="text-coral">.</span>learner
           </a>
           <div className="flex items-center gap-3">
+            <nav className="mr-2 flex items-center gap-1 rounded-full bg-ink/5 p-1" aria-label="Practice sections">
+              <a className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-ink shadow-sm" href="/" aria-current="page">Daily practice</a>
+              <a className="rounded-full px-4 py-2 text-xs font-semibold text-ink/55 transition hover:bg-white hover:text-ink" href="/full-length">Full-length essay</a>
+            </nav>
             <span className="rounded-full border border-ink/15 px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] text-ink/60">GRE AWA</span>
             <button className="text-xs font-semibold text-ink/50 transition hover:text-coral" onClick={logout} type="button">Log out</button>
           </div>

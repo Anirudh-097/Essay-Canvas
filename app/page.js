@@ -1,23 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-
-// All requests now go through the Next.js rewrite above, so the browser
-// only ever talks to its own origin — this avoids Safari ITP blocking the
-// cross-site session cookie entirely.
-const API_URL = "/api";
-
-async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
-    cache: "no-store",
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `The backend returned ${response.status}.`);
-  return body;
-}
+import { API_URL, request, startKeepAlive, wakeBackend } from "./client-api";
 
 function ErrorMessage({ message }) {
   return <p className="rounded-xl bg-red-50 p-4 text-sm leading-6 text-red-800">{message}</p>;
@@ -34,6 +18,7 @@ function LoginPage({ onLogin }) {
     setLoading(true);
     setError("");
     try {
+      await wakeBackend();
       const user = await request("/auth/login", {
         method: "POST",
         body: JSON.stringify({ username, password }),
@@ -77,6 +62,7 @@ export default function HomePage() {
   const [progress, setProgress] = useState(null);
   const [loading, setLoading] = useState("topic");
   const [error, setError] = useState("");
+  const [wakeMessage, setWakeMessage] = useState("Waking the writing studio…");
 
   const loadPractice = useCallback(async (topicId) => {
     const prompt = await request(`/practice/prompt?exclude_topic_id=${topicId}`);
@@ -99,18 +85,24 @@ export default function HomePage() {
   }, [loadPractice]);
 
   useEffect(() => {
-    request("/auth/me")
+    wakeBackend((attempt) => setWakeMessage(`Waking the writing studio… retry ${attempt}/2`))
+      .then(() => request("/auth/me"))
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
 
   useEffect(() => {
+    if (!user) return undefined;
+    return startKeepAlive(() => setUser(null));
+  }, [user]);
+
+  useEffect(() => {
     if (user) loadPage();
   }, [user, loadPage]);
 
   if (!authChecked) {
-    return <main className="flex min-h-screen items-center justify-center bg-paper text-sm text-ink/50">Checking your session…</main>;
+    return <main className="flex min-h-screen items-center justify-center bg-paper text-sm text-ink/50">{wakeMessage}</main>;
   }
 
   if (!user) {
@@ -131,6 +123,19 @@ export default function HomePage() {
         body: JSON.stringify({ topic_id: topic.id }),
       });
       setEssay(result.essay);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading("");
+    }
+  }
+
+  async function rerollPractice() {
+    if (!practice) return;
+    setLoading("practice");
+    setError("");
+    try {
+      await loadPractice(practice.topic.id);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -235,7 +240,10 @@ export default function HomePage() {
             {practice && (
               <>
                 <div className="mt-8 rounded-2xl bg-white/70 p-5">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">{practice.paragraph_type}</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-ink/45">{practice.paragraph_type}</p>
+                    <button className="text-xs font-semibold text-coral transition hover:text-ink disabled:opacity-50" disabled={loading === "practice"} onClick={rerollPractice} type="button">{loading === "practice" ? "Finding…" : "Reroll topic"}</button>
+                  </div>
                   <p className="font-display text-xl leading-8">{practice.topic.topic}</p>
                 </div>
                 <form className="mt-6" onSubmit={evaluateParagraph}>

@@ -1,20 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-const API_URL = "/api";
-
-async function request(path, options = {}) {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
-    cache: "no-store",
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `The backend returned ${response.status}.`);
-  return body;
-}
+import { API_URL, request, startKeepAlive, wakeBackend } from "../client-api";
 
 function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -27,6 +14,7 @@ function LoginPage({ onLogin }) {
     setLoading(true);
     setError("");
     try {
+      await wakeBackend();
       const user = await request("/auth/login", {
         method: "POST",
         body: JSON.stringify({ username, password }),
@@ -73,13 +61,20 @@ export default function FullLengthPage() {
   const [evaluation, setEvaluation] = useState(null);
   const [evaluationLoading, setEvaluationLoading] = useState(false);
   const [error, setError] = useState("");
+  const [wakeMessage, setWakeMessage] = useState("Waking the writing studio…");
 
   useEffect(() => {
-    request("/auth/me")
+    wakeBackend((attempt) => setWakeMessage(`Waking the writing studio… retry ${attempt}/2`))
+      .then(() => request("/auth/me"))
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    return startKeepAlive(() => setUser(null));
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -121,7 +116,22 @@ export default function FullLengthPage() {
     }
   }
 
-  if (!authChecked) return <main className="flex min-h-screen items-center justify-center bg-paper text-sm text-ink/50">Checking your session…</main>;
+  async function rerollTopic() {
+    if (!topic) return;
+    setError("");
+    try {
+      const nextTopic = await request(`/topic/random?exclude_topic_id=${topic.id}`);
+      setTopic(nextTopic);
+      setEssay("");
+      setEvaluation(null);
+      setTimerRunning(false);
+      setSeconds(0);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
+  if (!authChecked) return <main className="flex min-h-screen items-center justify-center bg-paper text-sm text-ink/50">{wakeMessage}</main>;
   if (!user) return <LoginPage onLogin={setUser} />;
 
   return (
@@ -168,7 +178,12 @@ export default function FullLengthPage() {
               <span>Issue topic</span>
               {topic && <span>#{String(topic.id).padStart(3, "0")}</span>}
             </div>
-            {topic ? <blockquote className="font-display text-2xl leading-[1.5] sm:text-3xl">{topic.topic}</blockquote> : <div className="space-y-4" aria-label="Loading topic"><div className="h-5 w-full animate-pulse rounded bg-ink/10" /><div className="h-5 w-5/6 animate-pulse rounded bg-ink/10" /></div>}
+            {topic ? (
+              <>
+                <blockquote className="font-display text-2xl leading-[1.5] sm:text-3xl">{topic.topic}</blockquote>
+                <button className="mt-6 rounded-full border border-ink/15 px-4 py-2.5 text-sm font-semibold text-ink/70 transition hover:border-coral hover:text-coral" onClick={rerollTopic} type="button">Reroll topic</button>
+              </>
+            ) : <div className="space-y-4" aria-label="Loading topic"><div className="h-5 w-full animate-pulse rounded bg-ink/10" /><div className="h-5 w-5/6 animate-pulse rounded bg-ink/10" /></div>}
             <label className="sr-only" htmlFor="full-length-essay">Your essay</label>
             <textarea className="mt-10 min-h-[30rem] w-full resize-y rounded-2xl border border-ink/10 bg-paper p-6 text-base leading-8 text-ink outline-none ring-coral/30 placeholder:text-ink/35 focus:ring-2" id="full-length-essay" placeholder="Begin your essay here…" value={essay} onChange={(event) => setEssay(event.target.value)} />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-ink/50">
